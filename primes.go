@@ -4,7 +4,9 @@ import (
     "fmt"
     "os"
     "os/signal"
+    "runtime"
     "syscall"
+    "time"
 )
 
 func main() {
@@ -14,45 +16,56 @@ func main() {
 
   sigs := make(chan os.Signal, 1)
   signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-  done := make(chan bool,1)
+  done := make(chan struct{},1)
 
   go func() {
     for {
+      // this gag keeps showing up where channels & goroutines are
       select {
       case <- done:
         fmt.Printf("\ngot a done so exiting\n")
-        done <- false
         return
       default:
-        isprime:=true // until shown otherwise
-        for ii:=2;ii<candidate;ii++ {
-          select {
-          case <-done:
-            fmt.Printf("\ngot done true in inner loop. not even finishing this check of %v\n",candidate)
-            done <- true
-            return
-          default:
-          }
-          if candidate % ii == 0 {
-            isprime=false
-            break
-          }
-        }  
-        if isprime {
-          fmt.Printf("%d ",candidate)
-        }
-        candidate+=1
       }
+
+      time.Sleep(1*time.Second)
+      isprime:=true // until shown otherwise
+      for ii:=2;ii<candidate;ii++ {
+        time.Sleep(1*time.Second)
+        
+        select {
+        case <-done:
+          fmt.Printf("\ngot done in inner loop. not even finishing this check of %v\n",candidate)
+          time.Sleep(1*time.Second)
+          return
+        default:
+        }
+
+        if candidate % ii == 0 {
+          isprime=false
+          break
+        }
+      }  
+      if isprime {
+        fmt.Printf("%d ",candidate)
+      }
+      candidate+=1
     }
   }()
 
 
-  sig := <- sigs
-  fmt.Printf("\n\ninterrupting because %v\n\n",sig)
-  done <- true
+  <- sigs
+  fmt.Printf("\n\ninterrupted by user ...\n\n")
+  signal.Stop(sigs)
+  close(sigs)
+  close(done)
 
-  inner := <- done
-  fmt.Printf("\nDone acked %v, so can store state and stuff here.\n",inner)
+  // 2 routines left, main() and the signal handler
+  for n:=runtime.NumGoroutine();n>2;n=runtime.NumGoroutine() {
+    time.Sleep(100*time.Millisecond)
+  }
+
+  fmt.Printf("\nNow I can store state and wrap up here.\n")
 
   fmt.Println("Really done")
 

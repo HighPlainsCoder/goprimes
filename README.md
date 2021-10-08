@@ -9,3 +9,6 @@ And, maybe, a tool for BDD, or Testing, or other things.
 v1: the simplest. Start at 3, divide by every number possible
 
 v2: add signals so I can catch an interrupt, and goroutine, so I can loop until I do.
+
+v2.1: cleaned up the signalling; refactored how the select is coded; added proper wait for shutdown
+
